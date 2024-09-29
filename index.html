@@ -80,7 +80,7 @@
 
         // Load summary with sanitized data and explicit columns
         async function loadSummary() {
-            const summaryData = await fetchCSV('https://michaelwartmann.github.io/tennistracker/summary.csv');
+            const summaryData = await fetchCSV('summary.csv');
             const summaryBody = document.getElementById('summary-body');
             const columns = ['Date', 'Hit % Baseline', '1st Serve %', '2nd Serve %', 'Duration in min', 'Calories Burned', 'Comment'];
 
@@ -112,7 +112,7 @@
 
         // Load details with sanitized data and explicit columns
         async function loadDetails(date) {
-            const roundsData = await fetchCSV('https://michaelwartmann.github.io/tennistracker/rounds.csv');
+            const roundsData = await fetchCSV('rounds.csv');
             const detailsBody = document.getElementById('details-body');
             const detailsTable = document.getElementById('details-table');
             const columns = ['Round', 'Hit % Baseline', '1st Serve %', '2nd Serve %', 'Service Games Played'];
