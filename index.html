@@ -1,277 +1,201 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Tennis Training Tracker</title>
-    <style>
-        /* Basic styles */
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 20px;
-        }
-        h1, h2 {
-            text-align: center;
-        }
-        .container {
-            max-width: 1000px;
-            margin: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
-        th {
-            background-color: #4CAF50;
-            color: white;
-        }
-        tr:hover {
-            background-color: #f1f1f1;
-            cursor: pointer;
-        }
-        .details {
-            display: none;
-        }
-        /* Responsive canvas */
-        canvas {
-            max-width: 100%;
-            height: auto;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Tennis Training Tracker</h1>
+// Sanitize function
+function sanitize(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
 
-        <!-- Summary Table -->
-        <h2>Summary</h2>
-        <table id="summary-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Hit % Baseline</th>
-                    <th>1st Serve %</th>
-                    <th>2nd Serve %</th>
-                    <th>Duration (min)</th>
-                    <th>Calories Burned</th>
-                    <th>Comment</th>
-                </tr>
-            </thead>
-            <tbody id="summary-body">
-                <!-- Data will be inserted here -->
-            </tbody>
-        </table>
+// Fetch CSV with error handling
+async function fetchCSV(url) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.text();
+        const parsedData = Papa.parse(data, { header: true });
+        if (parsedData.errors.length) throw new Error('Parsing error');
+        return parsedData.data;
+    } catch (error) {
+        console.error('Error fetching or parsing data:', error);
+        alert('There was an error loading the data.');
+        return [];
+    }
+}
 
-        <!-- Details Table -->
-        <h2>Details</h2>
-        <table id="details-table" class="details">
-            <thead>
-                <tr>
-                    <th>Round</th>
-                    <th>Hit % Baseline</th>
-                    <th>1st Serve %</th>
-                    <th>2nd Serve %</th>
-                    <th>Service Games Played</th>
-                </tr>
-            </thead>
-            <tbody id="details-body">
-                <!-- Data will be inserted here -->
-            </tbody>
-        </table>
+let chart; // Declare chart variable globally to update it later if needed
 
-        <!-- Performance Graph -->
-        <h2>Performance Graph</h2>
-        <canvas id="performanceChart"></canvas>
-    </div>
+// Load summary with sanitized data and explicit columns
+async function loadSummary() {
+    const summaryData = await fetchCSV('summary.csv');
+    const summaryBody = document.getElementById('summary-body');
+    const columns = ['Date', 'Rounds of Play', 'Hit % Baseline', '1st Serve %', '2nd Serve %', 'Service Games Played', 'Duration in min', 'Comment'];
 
-    <!-- Include PapaParse for CSV parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <!-- Include Chart.js for charts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    summaryData.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.setAttribute('tabindex', '0');
 
-    <!-- JavaScript Code -->
-    <script>
-        // Fetch and parse CSV data
-        async function fetchCSV(url) {
-            const response = await fetch(url);
-            const data = await response.text();
-            const parsedData = Papa.parse(data.trim(), { header: true });
-            return parsedData.data;
-        }
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            td.innerHTML = sanitize(row[col]);
+            tr.appendChild(td);
+        });
 
-        // Sanitize function to prevent XSS attacks
-        function sanitize(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        tr.addEventListener('click', () => {
+            document.querySelectorAll('#summary-table tr').forEach(row => row.classList.remove('selected'));
+            tr.classList.add('selected');
+            loadDetails(row['Date']);
+            updateChart(row['Date']); // Update chart for selected date
+        });
 
-        // Load summary data
-        async function loadSummary() {
-            const summaryData = await fetchCSV('summary.csv');
-            const summaryBody = document.getElementById('summary-body');
+        tr.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                tr.click();
+            }
+        });
 
-            summaryData.forEach(row => {
-                const tr = document.createElement('tr');
+        summaryBody.appendChild(tr);
+    });
+}
 
-                // Populate table cells
-                ['Date', 'Hit % Baseline', '1st Serve %', '2nd Serve %', 'Duration in min', 'Calories Burned', 'Comment'].forEach(col => {
-                    const td = document.createElement('td');
-                    td.innerHTML = sanitize(row[col]);
-                    tr.appendChild(td);
-                });
+// Load details with sanitized data and explicit columns
+async function loadDetails(date) {
+    const roundsData = await fetchCSV('rounds.csv');
+    const detailsBody = document.getElementById('details-body');
+    const detailsTable = document.getElementById('details-table');
+    const columns = ['Round #', 'Hit % Baseline', '1st Serve %', '2nd Serve %', 'Service Games Played'];
+    detailsBody.innerHTML = '';
 
-                // Add click event to load details
-                tr.addEventListener('click', () => {
-                    loadDetails(row['Date']);
-                    highlightRow(tr);
-                    updateChart(row['Date']);
-                });
+    const dateToMatch = date.trim();
 
-                summaryBody.appendChild(tr);
+    roundsData
+        .filter(row => row['Date'].trim() === dateToMatch)
+        .forEach(row => {
+            const tr = document.createElement('tr');
+            columns.forEach(col => {
+                const td = document.createElement('td');
+                td.innerHTML = sanitize(row[col]);
+                tr.appendChild(td);
             });
-        }
+            detailsBody.appendChild(tr);
+        });
 
-        // Highlight selected row
-        function highlightRow(row) {
-            const rows = document.querySelectorAll('#summary-table tr');
-            rows.forEach(r => r.classList.remove('selected'));
-            row.classList.add('selected');
-        }
+    detailsTable.style.display = 'table';
+}
 
-        // Load details data
-        async function loadDetails(date) {
-            const detailsData = await fetchCSV('rounds.csv');
-            const detailsBody = document.getElementById('details-body');
-            const detailsTable = document.getElementById('details-table');
+// Prepare data for the chart
+async function prepareChartData() {
+    const summaryData = await fetchCSV('summary.csv');
+    const labels = [];
+    const hitBaselineData = [];
+    const firstServeData = [];
+    const secondServeData = [];
 
-            // Clear previous details
-            detailsBody.innerHTML = '';
+    summaryData.forEach(row => {
+        labels.push(row['Date'].trim());
+        hitBaselineData.push(parseFloat(row['Hit % Baseline']));
+        firstServeData.push(parseFloat(row['1st Serve %']));
+        secondServeData.push(parseFloat(row['2nd Serve %']));
+    });
 
-            // Filter data for the selected date
-            const filteredData = detailsData.filter(row => row['Date'] === date);
+    createChart(labels, hitBaselineData, firstServeData, secondServeData);
+}
 
-            // Populate details table
-            filteredData.forEach(row => {
-                const tr = document.createElement('tr');
+// Create the chart
+function createChart(labels, hitBaselineData, firstServeData, secondServeData) {
+    const ctx = document.getElementById('performanceChart').getContext('2d');
 
-                ['Round', 'Hit % Baseline', '1st Serve %', '2nd Serve %', 'Service Games Played'].forEach(col => {
-                    const td = document.createElement('td');
-                    td.innerHTML = sanitize(row[col]);
-                    tr.appendChild(td);
-                });
-
-                detailsBody.appendChild(tr);
-            });
-
-            // Show details table
-            detailsTable.style.display = filteredData.length ? 'table' : 'none';
-        }
-
-        // Initialize chart variable
-        let chart;
-
-        // Prepare data for the initial chart
-        async function prepareChartData() {
-            const summaryData = await fetchCSV('summary.csv');
-
-            const labels = summaryData.map(row => row['Date']);
-            const hitBaselineData = summaryData.map(row => parseFloat(row['Hit % Baseline']));
-            const firstServeData = summaryData.map(row => parseFloat(row['1st Serve %']));
-            const secondServeData = summaryData.map(row => parseFloat(row['2nd Serve %']));
-
-            createChart(labels, hitBaselineData, firstServeData, secondServeData);
-        }
-
-        // Create the chart
-        function createChart(labels, hitBaselineData, firstServeData, secondServeData) {
-            const ctx = document.getElementById('performanceChart').getContext('2d');
-
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Hit % Baseline',
-                            data: hitBaselineData,
-                            borderColor: 'rgba(75, 192, 192, 1)',
-                            fill: false,
-                            tension: 0.1
-                        },
-                        {
-                            label: '1st Serve %',
-                            data: firstServeData,
-                            borderColor: 'rgba(255, 99, 132, 1)',
-                            fill: false,
-                            tension: 0.1
-                        },
-                        {
-                            label: '2nd Serve %',
-                            data: secondServeData,
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            fill: false,
-                            tension: 0.1
-                        }
-                    ]
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Hit % Baseline',
+                    data: hitBaselineData,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    fill: false,
+                    tension: 0.1
                 },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            title: {
-                                display: true,
-                                text: 'Percentage (%)'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            }
-                        }
-                    }
+                {
+                    label: '1st Serve %',
+                    data: firstServeData,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    fill: false,
+                    tension: 0.1
+                },
+                {
+                    label: '2nd Serve %',
+                    data: secondServeData,
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    fill: false,
+                    tension: 0.1
                 }
-            });
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Percentage (%)'
+                    },
+                    suggestedMin: 0,
+                    suggestedMax: 100
+                }
+            }
         }
+    });
+}
 
-        // Update chart with details data
-        async function updateChart(date) {
-            const roundsData = await fetchCSV('rounds.csv');
-            const filteredData = roundsData.filter(row => row['Date'] === date);
+// Update chart with details data
+async function updateChart(date) {
+    const roundsData = await fetchCSV('rounds.csv');
+    const filteredData = roundsData.filter(row => row['Date'].trim() === date.trim());
 
-            const labels = filteredData.map(row => 'Round ' + row['Round']);
-            const hitBaselineData = filteredData.map(row => parseFloat(row['Hit % Baseline']));
-            const firstServeData = filteredData.map(row => parseFloat(row['1st Serve %']));
-            const secondServeData = filteredData.map(row => parseFloat(row['2nd Serve %']));
+    const labels = [];
+    const hitBaselineData = [];
+    const firstServeData = [];
+    const secondServeData = [];
 
-            // Update chart data
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = hitBaselineData;
-            chart.data.datasets[1].data = firstServeData;
-            chart.data.datasets[2].data = secondServeData;
-            chart.update();
-        }
+    filteredData.forEach(row => {
+        labels.push('Round ' + row['Round #']);
+        hitBaselineData.push(parseFloat(row['Hit % Baseline']));
+        firstServeData.push(parseFloat(row['1st Serve %']));
+        secondServeData.push(parseFloat(row['2nd Serve %']));
+    });
 
-        // Initial load
-        window.onload = function() {
-            loadSummary();
-            prepareChartData();
-        };
-    </script>
-</body>
-</html>
+    // Update chart data
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = hitBaselineData;
+    chart.data.datasets[1].data = firstServeData;
+    chart.data.datasets[2].data = secondServeData;
+    chart.update();
+}
+
+// Initial load
+window.onload = function() {
+    loadSummary();
+    prepareChartData();
+};
