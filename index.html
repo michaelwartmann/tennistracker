@@ -1,200 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tennis Session Tracker</title>
+    <!-- ... (same as before) ... -->
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+        /* Existing styles */
+        /* ... */
+
+        /* Responsive Table */
+        .table-responsive {
+            overflow-x: auto;
         }
-        h1 {
-            text-align: center;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
-        th {
-            background-color: #f4f4f4;
-        }
-        .details {
-            display: none;
-        }
-        .summary-row:hover {
+
+        /* Clickable rows */
+        tr {
             cursor: pointer;
-            background-color: #f0f0f0;
+        }
+
+        tr.selected {
+            background-color: #d1e7dd;
+        }
+
+        /* Responsive Text */
+        body {
+            font-size: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                font-size: 0.9rem;
+            }
+            th, td {
+                padding: 6px;
+            }
         }
     </style>
 </head>
 <body>
-
-    <h1>Tennis Session Tracker</h1>
-
-    <!-- Summary Table -->
-    <table id="summaryTable">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Average Hit Percentage</th>
-                <th>Average Double Fault Percentage</th>
-                <th>Total Duration</th>
-                <th>Total Calories Burned</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Summary rows will be dynamically inserted here -->
-        </tbody>
-    </table>
-
-    <!-- Detailed Data Section -->
-    <div id="detailsSection">
-        <!-- Detailed tables will be dynamically inserted here -->
+    <div class="container">
+        <h1>Tennis Training Tracker</h1>
+        <div class="table-responsive">
+            <h2>Summary</h2>
+            <table id="summary-table">
+                <caption>Training Summary</caption>
+                <!-- ... -->
+            </table>
+        </div>
+        <div class="table-responsive">
+            <h2>Details</h2>
+            <table id="details-table" class="details">
+                <caption>Session Details</caption>
+                <!-- ... -->
+            </table>
+        </div>
     </div>
 
     <script>
-        // Function to read CSV files and convert them into JSON
-        function parseCSV(file, callback) {
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const text = event.target.result;
-                const data = CSVToArray(text);
-                callback(data);
-            };
-            reader.readAsText(file);
+        // Sanitize function
+        function sanitize(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
-        // Convert CSV text to a 2D array
-        function CSVToArray(strData, strDelimiter = ",") {
-            const objPattern = new RegExp(
-                (
-                    "(\\" + strDelimiter + "|\\r?\\n|\\r|^)" +
-                    "(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" +
-                    "([^\"\\" + strDelimiter + "\\r\\n]*))"
-                ),
-                "gi"
-            );
-            const arrData = [[]];
-            let arrMatches = null;
-            while (arrMatches = objPattern.exec(strData)) {
-                const strMatchedDelimiter = arrMatches[1];
-                if (strMatchedDelimiter.length && strMatchedDelimiter !== strDelimiter) {
-                    arrData.push([]);
-                }
-                const strMatchedValue = arrMatches[2] ? 
-                    arrMatches[2].replace(new RegExp("\"\"", "g"), "\"") :
-                    arrMatches[3];
-                arrData[arrData.length - 1].push(strMatchedValue);
+        // Fetch CSV with error handling
+        async function fetchCSV(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.text();
+                const parsedData = Papa.parse(data, { header: true });
+                if (parsedData.errors.length) throw new Error('Parsing error');
+                return parsedData.data;
+            } catch (error) {
+                console.error('Error fetching or parsing data:', error);
+                alert('There was an error loading the data.');
+                return [];
             }
-            return arrData;
         }
 
-        // Function to create the summary table from CSV data
-        function createSummaryTable(data) {
-            const summaryTableBody = document.getElementById('summaryTable').querySelector('tbody');
-            const dates = [...new Set(data.map(row => row[0]))]; // Unique dates
-            dates.forEach(date => {
-                const rows = data.filter(row => row[0] === date);
-                const avgHitPercentage = average(rows.map(row => parseFloat(row[2])));
-                const avgDoubleFaultPercentage = average(rows.map(row => parseFloat(row[6])));
-                const totalDuration = rows[0][7];
-                const totalCaloriesBurned = rows[0][8];
-                const row = document.createElement('tr');
-                row.classList.add('summary-row');
-                row.dataset.date = date;
-                row.innerHTML = `
-                    <td>${date}</td>
-                    <td>${avgHitPercentage.toFixed(2)}%</td>
-                    <td>${avgDoubleFaultPercentage.toFixed(2)}%</td>
-                    <td>${totalDuration}</td>
-                    <td>${totalCaloriesBurned}</td>
-                `;
-                summaryTableBody.appendChild(row);
-            });
-        }
+        // Load summary with sanitized data and explicit columns
+        async function loadSummary() {
+            const summaryData = await fetchCSV('https://michaelwartmann.github.io/tennistracker/summary.csv');
+            const summaryBody = document.getElementById('summary-body');
+            const columns = ['Date', 'Hit % Baseline', '1st Serve %', '2nd Serve %', 'Duration in min', 'Calories Burned', 'Comment'];
 
-        // Function to create the details table
-        function createDetailsTable(data) {
-            const detailsSection = document.getElementById('detailsSection');
-            const dates = [...new Set(data.map(row => row[0]))]; // Unique dates
-            dates.forEach(date => {
-                const rows = data.filter(row => row[0] === date);
-                const detailsDiv = document.createElement('div');
-                detailsDiv.id = `details-${date}`;
-                detailsDiv.classList.add('details');
-                let tableHTML = `
-                    <h3>Details for ${date}</h3>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Round</th>
-                                <th>Hit Percentage</th>
-                                <th>Double Fault Percentage</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-                rows.forEach(row => {
-                    tableHTML += `
-                        <tr>
-                            <td>${row[1]}</td>
-                            <td>${row[2]}%</td>
-                            <td>${row[6]}%</td>
-                        </tr>
-                    `;
+            summaryData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.setAttribute('tabindex', '0');
+
+                columns.forEach(col => {
+                    const td = document.createElement('td');
+                    td.innerHTML = sanitize(row[col]);
+                    tr.appendChild(td);
                 });
-                tableHTML += `</tbody></table>`;
-                detailsDiv.innerHTML = tableHTML;
-                detailsSection.appendChild(detailsDiv);
+
+                tr.addEventListener('click', () => {
+                    document.querySelectorAll('#summary-table tr').forEach(row => row.classList.remove('selected'));
+                    tr.classList.add('selected');
+                    loadDetails(row.Date);
+                });
+
+                tr.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        tr.click();
+                    }
+                });
+
+                summaryBody.appendChild(tr);
             });
         }
 
-        // Function to calculate the average of an array
-        function average(arr) {
-            const validNumbers = arr.filter(Number.isFinite);
-            return validNumbers.reduce((acc, val) => acc + val, 0) / validNumbers.length;
+        // Load details with sanitized data and explicit columns
+        async function loadDetails(date) {
+            const roundsData = await fetchCSV('https://michaelwartmann.github.io/tennistracker/rounds.csv');
+            const detailsBody = document.getElementById('details-body');
+            const detailsTable = document.getElementById('details-table');
+            const columns = ['Round', 'Hit % Baseline', '1st Serve %', '2nd Serve %', 'Service Games Played'];
+            detailsBody.innerHTML = '';
+
+            const dateToMatch = date.trim();
+
+            roundsData
+                .filter(row => row.Date.trim() === dateToMatch)
+                .forEach(row => {
+                    const tr = document.createElement('tr');
+                    columns.forEach(col => {
+                        const td = document.createElement('td');
+                        td.innerHTML = sanitize(row[col]);
+                        tr.appendChild(td);
+                    });
+                    detailsBody.appendChild(tr);
+                });
+
+            detailsTable.style.display = 'table';
         }
 
-        // Function to toggle details visibility
-        function toggleDetails(event) {
-            const date = event.currentTarget.dataset.date;
-            const detailsDiv = document.getElementById(`details-${date}`);
-            if (detailsDiv) {
-                detailsDiv.style.display = detailsDiv.style.display === 'none' ? 'block' : 'none';
-            }
-        }
-
-        // Load and parse the CSV files when the page loads
+        // Initial load
         window.onload = function() {
-            const summaryCSV = "summary.csv"; // Replace with actual summary CSV file path
-            const detailsCSV = "details.csv"; // Replace with actual details CSV file path
-
-            // Load and parse the summary CSV file
-            fetch(summaryCSV)
-                .then(response => response.blob())
-                .then(blob => parseCSV(blob, createSummaryTable));
-
-            // Load and parse the details CSV file
-            fetch(detailsCSV)
-                .then(response => response.blob())
-                .then(blob => parseCSV(blob, createDetailsTable));
+            loadSummary();
         };
-
-        // Attach click events to summary rows
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.summary-row').forEach(row => {
-                row.addEventListener('click', toggleDetails);
-            });
-        });
-
     </script>
-
+    <!-- PapaParse script -->
 </body>
 </html>
