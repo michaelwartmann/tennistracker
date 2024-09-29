@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennis Session Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .details {
+            display: none;
+        }
+        .summary-row:hover {
+            cursor: pointer;
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Tennis Session Tracker</h1>
+
+    <!-- Summary Table -->
+    <table id="summaryTable">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Average Hit Percentage</th>
+                <th>Average Double Fault Percentage</th>
+                <th>Total Duration</th>
+                <th>Total Calories Burned</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Summary rows will be dynamically inserted here -->
+        </tbody>
+    </table>
+
+    <!-- Detailed Data Section -->
+    <div id="detailsSection">
+        <!-- Detailed tables will be dynamically inserted here -->
+    </div>
+
+    <script>
+        // Function to read CSV files and convert them into JSON
+        function parseCSV(file, callback) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const text = event.target.result;
+                const data = CSVToArray(text);
+                callback(data);
+            };
+            reader.readAsText(file);
+        }
+
+        // Convert CSV text to a 2D array
+        function CSVToArray(strData, strDelimiter = ",") {
+            const objPattern = new RegExp(
+                (
+                    "(\\" + strDelimiter + "|\\r?\\n|\\r|^)" +
+                    "(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" +
+                    "([^\"\\" + strDelimiter + "\\r\\n]*))"
+                ),
+                "gi"
+            );
+            const arrData = [[]];
+            let arrMatches = null;
+            while (arrMatches = objPattern.exec(strData)) {
+                const strMatchedDelimiter = arrMatches[1];
+                if (strMatchedDelimiter.length && strMatchedDelimiter !== strDelimiter) {
+                    arrData.push([]);
+                }
+                const strMatchedValue = arrMatches[2] ? 
+                    arrMatches[2].replace(new RegExp("\"\"", "g"), "\"") :
+                    arrMatches[3];
+                arrData[arrData.length - 1].push(strMatchedValue);
+            }
+            return arrData;
+        }
+
+        // Function to create the summary table from CSV data
+        function createSummaryTable(data) {
+            const summaryTableBody = document.getElementById('summaryTable').querySelector('tbody');
+            const dates = [...new Set(data.map(row => row[0]))]; // Unique dates
+            dates.forEach(date => {
+                const rows = data.filter(row => row[0] === date);
+                const avgHitPercentage = average(rows.map(row => parseFloat(row[2])));
+                const avgDoubleFaultPercentage = average(rows.map(row => parseFloat(row[6])));
+                const totalDuration = rows[0][7];
+                const totalCaloriesBurned = rows[0][8];
+                const row = document.createElement('tr');
+                row.classList.add('summary-row');
+                row.dataset.date = date;
+                row.innerHTML = `
+                    <td>${date}</td>
+                    <td>${avgHitPercentage.toFixed(2)}%</td>
+                    <td>${avgDoubleFaultPercentage.toFixed(2)}%</td>
+                    <td>${totalDuration}</td>
+                    <td>${totalCaloriesBurned}</td>
+                `;
+                summaryTableBody.appendChild(row);
+            });
+        }
+
+        // Function to create the details table
+        function createDetailsTable(data) {
+            const detailsSection = document.getElementById('detailsSection');
+            const dates = [...new Set(data.map(row => row[0]))]; // Unique dates
+            dates.forEach(date => {
+                const rows = data.filter(row => row[0] === date);
+                const detailsDiv = document.createElement('div');
+                detailsDiv.id = `details-${date}`;
+                detailsDiv.classList.add('details');
+                let tableHTML = `
+                    <h3>Details for ${date}</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Round</th>
+                                <th>Hit Percentage</th>
+                                <th>Double Fault Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                rows.forEach(row => {
+                    tableHTML += `
+                        <tr>
+                            <td>${row[1]}</td>
+                            <td>${row[2]}%</td>
+                            <td>${row[6]}%</td>
+                        </tr>
+                    `;
+                });
+                tableHTML += `</tbody></table>`;
+                detailsDiv.innerHTML = tableHTML;
+                detailsSection.appendChild(detailsDiv);
+            });
+        }
+
+        // Function to calculate the average of an array
+        function average(arr) {
+            const validNumbers = arr.filter(Number.isFinite);
+            return validNumbers.reduce((acc, val) => acc + val, 0) / validNumbers.length;
+        }
+
+        // Function to toggle details visibility
+        function toggleDetails(event) {
+            const date = event.currentTarget.dataset.date;
+            const detailsDiv = document.getElementById(`details-${date}`);
+            if (detailsDiv) {
+                detailsDiv.style.display = detailsDiv.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        // Load and parse the CSV files when the page loads
+        window.onload = function() {
+            const summaryCSV = "summary.csv"; // Replace with actual summary CSV file path
+            const detailsCSV = "details.csv"; // Replace with actual details CSV file path
+
+            // Load and parse the summary CSV file
+            fetch(summaryCSV)
+                .then(response => response.blob())
+                .then(blob => parseCSV(blob, createSummaryTable));
+
+            // Load and parse the details CSV file
+            fetch(detailsCSV)
+                .then(response => response.blob())
+                .then(blob => parseCSV(blob, createDetailsTable));
+        };
+
+        // Attach click events to summary rows
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.summary-row').forEach(row => {
+                row.addEventListener('click', toggleDetails);
+            });
+        });
+
+    </script>
+
+</body>
+</html>
