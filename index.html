@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Include Papa Parse for CSV parsing -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+    <!-- Include Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -59,16 +61,33 @@
                 margin-bottom: 15px;
             }
         }
+        /* Chart container */
+        .chart-container {
+            width: 100%;
+            margin: auto;
+            max-width: 800px;
+        }
     </style>
 </head>
 <body>
     <h1>Tennis Tracker</h1>
 
+    <!-- Summary Section -->
     <h2>Summary</h2>
     <div class="table-container" id="summary"></div>
 
+    <!-- Rounds Section -->
     <h2>Rounds</h2>
     <div class="table-container" id="rounds"></div>
+
+    <!-- Charts Section -->
+    <h2>Performance Over Time</h2>
+    <div class="chart-container">
+        <canvas id="hitPercentageChart"></canvas>
+    </div>
+    <div class="chart-container">
+        <canvas id="servePercentageChart"></canvas>
+    </div>
 
     <script>
         // Function to create a table from data
@@ -109,21 +128,92 @@
         }
 
         // Function to fetch and display CSV data
-        function fetchAndDisplayCSV(url, elementId) {
+        function fetchAndDisplayCSV(url, elementId, callback) {
             fetch(url)
                 .then(response => response.text())
                 .then(csvText => {
                     const data = Papa.parse(csvText, {
                         header: true,
-                        skipEmptyLines: true
+                        skipEmptyLines: true,
+                        dynamicTyping: true
                     }).data;
                     createTable(data, elementId);
+                    if (callback) callback(data);
                 })
                 .catch(error => console.error('Error fetching CSV:', error));
         }
 
+        // Function to create charts
+        function createCharts(summaryData) {
+            // Prepare data for Hit % Baseline chart
+            const dates = summaryData.map(item => item.Date);
+            const hitPercentages = summaryData.map(item => item['Hit % Baseline']);
+
+            // Hit % Baseline Chart
+            const ctx1 = document.getElementById('hitPercentageChart').getContext('2d');
+            new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Hit % Baseline',
+                        data: hitPercentages,
+                        borderColor: 'blue',
+                        backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { title: { display: true, text: 'Date' } },
+                        y: { title: { display: true, text: 'Percentage' }, beginAtZero: true }
+                    }
+                }
+            });
+
+            // Prepare data for Serve Percentages chart
+            const firstServePercentages = summaryData.map(item => item['1st Serve %']);
+            const secondServePercentages = summaryData.map(item => item['2nd Serve %']);
+
+            // Serve Percentages Chart
+            const ctx2 = document.getElementById('servePercentageChart').getContext('2d');
+            new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: '1st Serve %',
+                            data: firstServePercentages,
+                            borderColor: 'green',
+                            backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                            fill: true,
+                            tension: 0.1
+                        },
+                        {
+                            label: '2nd Serve %',
+                            data: secondServePercentages,
+                            borderColor: 'red',
+                            backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                            fill: true,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { title: { display: true, text: 'Date' } },
+                        y: { title: { display: true, text: 'Percentage' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
         // Fetch and display data
-        fetchAndDisplayCSV('summary.csv', 'summary');
+        fetchAndDisplayCSV('summary.csv', 'summary', createCharts);
         fetchAndDisplayCSV('rounds.csv', 'rounds');
     </script>
 </body>
