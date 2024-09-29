@@ -181,7 +181,7 @@
             const roundsData = await fetchCSV('rounds.csv');
             const detailsBody = document.getElementById('details-body');
             const detailsTable = document.getElementById('details-table');
-            const columns = ['Round #', 'Hit % Baseline', '1st Serve %', '2nd Serve %', 'Service Games Played'];
+            const columns = ['Date', 'Round #', 'Hit % Baseline', '1st Serve %', '2nd Serve %', 'Service Games Played'];
             detailsBody.innerHTML = '';
 
             const dateToMatch = date.trim();
