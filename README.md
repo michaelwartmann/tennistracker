@@ -21,6 +21,8 @@ The Tennis Session Tracker is a customized GPT-based tool designed specifically 
 - **Serve Accuracy:** Using the successful first serves and double faults you record, the tracker calculates the overall first serve percentage, second serve success rate, and tracks the number of double faults.
 - **Session Summary:** After each session, the tracker compiles all data into a detailed summary, providing insights into performance trends and areas for improvement.
 
+The tracker can be used here: https://chatgpt.com/g/g-iE4hazarU-tennis-session-tracker
+
 ### Data Management
 - **Data Files:** After each training session, the tracker generates a data file with all recorded statistics. This file is uploaded to a GitHub repository, ensuring a secure and organized storage of session data.
 - **Website Integration:** The data is then displayed on a dedicated website, providing real-time statistics and performance insights. This allows for easy monitoring of progress and identification of areas for improvement.
